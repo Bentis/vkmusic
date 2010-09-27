@@ -11,6 +11,7 @@ import time
 import urllib
 import urllib2
 import httplib2
+import subprocess
 from BeautifulSoup import BeautifulSoup
 
 CONSOLE_WIDTH = 80
@@ -148,7 +149,9 @@ class TextUI:
     quit = False
     last_update = 0
     last_bytecount = 0
+    last_filename = None
     download_started = 0
+    devnull = None
 
     def __init__(self):
         self.freemusic = FreeMusic()
@@ -157,6 +160,10 @@ class TextUI:
         except LoginFailedException:
             print "Login failed :("
             return None
+
+    def __del__(self):
+        if self.devnull is not None:
+            self.devnull.close()
 
     def run(self):
         self._show_main_menu()
@@ -198,8 +205,7 @@ class TextUI:
         elif command == 'p':
             self._prev_subresults()
         elif command == 'x':
-            # TODO: start player process
-            print "Not implemented"
+            self._play_last()
         elif command == 'r':
             # TODO: rename last file
             print "Not implemented"
@@ -257,6 +263,17 @@ class TextUI:
         else:
             print "At the beginning."
 
+    def _play_last(self):
+        if self.last_filename is None:
+            print "No file to play."
+            return
+
+        if self.devnull is None:
+            self.devnull = open(os.devnull,'w')
+
+        subprocess.Popen([PLAYER, self.last_filename], stdout=self.devnull, stderr=self.devnull)
+        # stderr > devnull because VLC prints debug to stderr :(
+
     def _get_console_width(self):
         # TODO: Make this dynamic with actual lookup? Pri: LOW
         # Could look at the implementation in python-wget
@@ -302,9 +319,10 @@ class TextUI:
         try:
             retrieved = urllib.urlretrieve(song.url, reporthook=self._download_reporthook)
             self.last_filename = u"%s.mp3" % song
+            self.last_filename = self.last_filename.replace('/', ' ') # slash in filename not allowed
             os.rename(retrieved[0], self.last_filename) # defaults to current dir
         except Exception as ex:
-            print "Download failed! reason: %s" % ex
+            print "\nDownload failed! reason: %s" % ex
             return
 
         print # newline after download progress.
