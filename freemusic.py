@@ -52,7 +52,7 @@ class FreeMusic:
     def login(self):
         conn = httplib2.HTTPConnectionWithTimeout("login.vk.com")
 
-        headers = {'Cookie':"remixchk=5; l=50175692; p=1f0308296491987b9065206e9f499f51ccbe",
+        headers = {'Cookie':"remixchk=5; l=5337115; p=7378d9d80df7781b3849bec8db9bf5cb61a4",
                    'User-Agent': "Tcl http client package 2.7" }
         conn.request('GET', '/', None, headers)
         req = conn.getresponse()
@@ -63,7 +63,7 @@ class FreeMusic:
 
         rem = self.guid_regex.search(res)
 
-        if rem is None:
+        if rem is None or rem.group(1) == 'nonenone':
             raise LoginFailedException
 
         self.guid = rem.group(1)
@@ -146,8 +146,14 @@ if __name__ == '__main__':
         exit(1)
 
     fm = FreeMusic()
-    fm.login()
+    try:
+        fm.login()
+    except LoginFailedException:
+        print "Login failed :("
+        exit(1)
+
     fm.search(argv[1])
+    print 'found %d' % len(fm.last_search)
 
     #songs= fm._parse_songs(open("dump.html", "r").read())
     #print songs[2],songs[2].url
