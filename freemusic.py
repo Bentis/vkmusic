@@ -207,10 +207,9 @@ class TextUI:
         elif command == 'x':
             self._play_last()
         elif command == 'r':
-            # TODO: rename last file
-            print "Not implemented"
+            self._rename(raw_command[1:].strip())
         elif command == 's':
-                self._do_search(raw_command[1:].strip())
+            self._do_search(raw_command[1:].strip())
         elif command == 'd':
             try:
                 index = int(raw_command[1:].strip())
@@ -273,6 +272,19 @@ class TextUI:
 
         subprocess.Popen([PLAYER, self.last_filename], stdout=self.devnull, stderr=self.devnull)
         # stderr > devnull because VLC prints debug to stderr :(
+
+    def _rename(self, newname):
+        if len(newname) < 1:
+            print "invalid new name. (r <newname>)"
+            return
+
+        try:
+            os.rename(self.last_filename, newname)
+            print u"Renamed %s to %s" % (self.last_filename, newname)
+            self.last_filename = newname
+        except Exception as ex:
+            print u"Rename failed. reason: %s" % ex
+            return
 
     def _get_console_width(self):
         # TODO: Make this dynamic with actual lookup? Pri: LOW
