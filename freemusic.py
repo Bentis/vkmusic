@@ -274,38 +274,5 @@ class TextUI:
         print "To play in %s type 'x'" % PLAYER
         # TODO: rename!
 
-def reporthook(block,blocksize,totalsize):
-    sys.stdout.write('\r%d %%' % (block*blocksize/float(totalsize)*100.0))
-    sys.stdout.flush()
-
 if __name__ == '__main__':
     TextUI().run()
-    exit(1)
-    from sys import argv
-    if len(argv) < 2:
-        print 'Usage: ./%s "search term"' % argv[0]
-        exit(1)
-
-    fm = FreeMusic()
-    try:
-        fm.login()
-    except LoginFailedException:
-        print "Login failed :("
-        exit(1)
-
-    fm.search(argv[1])
-    print 'found %d' % len(fm.last_search)
-
-    #songs= fm._parse_songs(open("dump.html", "r").read())
-    #print songs[2],songs[2].url
-
-    # FIXME: Make interactive menu systerm with browsing and downloading
-    # FIXME: possibly also gtk gui :)
-    sub = fm.last_search[:1]
-    fm.fetch_details(sub)
-    for s in sub:
-        print u'%s (%.2f MiB, %d kbps)' % (s, s.size/1048576.0, s.bitrate)
-        retrieved = urllib.urlretrieve(s.url, reporthook=reporthook)
-        dir(retrieved[1])
-        os.rename(retrieved[0], u'%s.mp3' % s)
-        print "Downloaded %s.mp3" % s
