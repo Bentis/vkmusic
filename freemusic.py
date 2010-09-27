@@ -212,7 +212,7 @@ class TextUI:
             except ValueError:
                 print "Bad index!"
         else:
-            print "invalid command, try agian."
+            print "invalid command, try agian. ('h' for help)"
 
     def _do_search(self, query):
         if len(query) == 0:
@@ -306,6 +306,7 @@ class TextUI:
         except Exception as ex:
             print "Download failed! reason: %s" % ex
             return
+
         print # newline after download progress.
         print "Saved as %s" % self.last_filename
         print "To play in %s type 'x'" % PLAYER
