@@ -135,6 +135,62 @@ class FreeMusic:
             raise SongParseError(ex)
         return song
 
+
+class TextUI:
+    freemusic = None
+    quit = False
+
+    def __init__(self):
+        freemusic = FreeMusic()
+        try:
+            fm.login()
+        except LoginFailedException:
+            print "Login failed :("
+            return None
+
+    def main(self):
+        self._show_main_menu()
+        while(not self.quit):
+            command = sys.stdin.readline()
+            self._execute_command(command)
+
+
+    def _show_main_menu(self):
+        print "Menu:"
+        print "s\tsearch"
+        print "q\tquit"
+        print
+
+    def _execute_command(self, command):
+        if len(command) != 1:
+            print "invalid command, try again"
+            return
+
+        if command == 'q':
+            self.quit = True
+            return
+        elif command == 's':
+            self._do_search()
+        elif command == 'n':
+            self._show_next_subresults()
+        elif command == 'p':
+            self._show_prev_subresults()
+        elif command[:1] == 'd':
+            try:
+                index = int(command[1:].strip())
+                self._download_song(index)
+            except ValueError:
+                print 'Bad index!'
+        else:
+            print 'invalid command, try agian.'
+
+    def display_subresults(self, results):
+        fm.fetch_details(results)
+        i = 0
+        for s in results:
+            print u'%d: %s (%.2f MiB, %d kbps)' % (i, s, s.size/1048576.0, s.bitrate)
+            i+=1
+
 def reporthook(block,blocksize,totalsize):
     sys.stdout.write('\r%d %%' % (block*blocksize/float(totalsize)*100.0))
     sys.stdout.flush()
