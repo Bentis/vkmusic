@@ -7,11 +7,13 @@
 import re
 import os
 import sys
+import time
 import urllib
 import urllib2
 import httplib2
 from BeautifulSoup import BeautifulSoup
 
+CONSOLE_WIDTH = 80
 RESULTS_PER_PAGE = 5
 PLAYER = 'vlc'
 
@@ -144,6 +146,9 @@ class TextUI:
     results = []
     current_offset = 0
     quit = False
+    last_update = 0
+    last_bytecount = 0
+    download_started = 0
 
     def __init__(self):
         self.freemusic = FreeMusic()
@@ -252,15 +257,47 @@ class TextUI:
         else:
             print "At the beginning."
 
+    def _get_console_width(self):
+        # TODO: Make this dynamic with actual lookup? Pri: LOW
+        # Could look at the implementation in python-wget
+        return CONSOLE_WIDTH
+
     def _download_reporthook(self, block, blocksize, totalsize):
-        sys.stdout.write('\r%d %%' % (block*blocksize/float(totalsize)*100.0))
+        # Dont update for every hook, no point. But run on 100%
+        downloaded = block*blocksize
+        if ((time.time() - self.last_update < 0.3) and not (downloaded >= totalsize)):
+            return
+
+        percent = (downloaded/float(totalsize)*100.0)
+        sys.stdout.write('\r%3d%% [' % percent)
+
+        bar_length = self._get_console_width() - 22 - len(str(totalsize))
+        bar_filled = int(bar_length/100.0*percent)
+
+        sys.stdout.write('=' * bar_filled)
+        sys.stdout.write('>')
+        sys.stdout.write(' ' * (bar_length-bar_filled))
+
+        if downloaded >= totalsize: # 100%
+            time_used = time.time()-self.download_started
+            kilobytes = totalsize/1024.0
+            sys.stdout.write("] %.2fMiB in %ds (%d KiB/s)" % (kilobytes/1024.0, time_used, int(kilobytes/time_used)))
+            # FIXME: this might smash the console width
+        else:
+            sys.stdout.write("] %d (%d KiB/s)" % (downloaded,
+                    int((downloaded-self.last_bytecount)/(time.time()-self.last_update)/1024.0)))
         sys.stdout.flush()
-        # TODO: make fancy download bar à la wget
+
+        self.last_update = time.time()
+        self.last_bytecount = downloaded
 
     def _download_song(self, index):
         song = self.results[index]
         print u"Downloading song '%s'" % song
-        print "debug: %s" % song.url
+        #print "debug: %s" % song.url
+        self.download_started = time.time()
+        self.last_update = time.time()
+        self.last_bytecount = 0
 
         try:
             retrieved = urllib.urlretrieve(song.url, reporthook=self._download_reporthook)
