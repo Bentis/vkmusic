@@ -12,6 +12,9 @@ import urllib2
 import httplib2
 from BeautifulSoup import BeautifulSoup
 
+RESULTS_PER_PAGE = 5
+PLAYER = 'vlc'
+
 class LoginFailedException(Exception):
     pass
 
@@ -138,64 +141,146 @@ class FreeMusic:
 
 class TextUI:
     freemusic = None
+    results = []
+    current_offset = 0
     quit = False
 
     def __init__(self):
-        freemusic = FreeMusic()
+        self.freemusic = FreeMusic()
         try:
-            fm.login()
+            self.freemusic.login()
         except LoginFailedException:
             print "Login failed :("
             return None
 
-    def main(self):
+    def run(self):
         self._show_main_menu()
         while(not self.quit):
+            sys.stdout.write("? ")
             command = sys.stdin.readline()
             self._execute_command(command)
 
-
     def _show_main_menu(self):
-        print "Menu:"
-        print "s\tsearch"
-        print "q\tquit"
-        print
+        print "Main menu:"
+        print "s <query> - new search"
+        print "h - show help"
+        print "q - quit"
 
-    def _execute_command(self, command):
-        if len(command) != 1:
+    def _display_help(self):
+        print "Commands:"
+        print "s <query> - new search"
+        print "q - quit"
+        print "n - show next results"
+        print "p - show previous results"
+        print "d <index> - download song at index <index>"
+        print "x - play downloaded song"
+        print "r <new> - rename last file to <new>"
+
+    def _execute_command(self, raw_command):
+        if len(raw_command) < 1:
             print "invalid command, try again"
             return
 
+        command = raw_command[:1]
         if command == 'q':
+            print "Quitting"
             self.quit = True
             return
-        elif command == 's':
-            self._do_search()
+        elif command == 'h':
+            self._display_help()
         elif command == 'n':
-            self._show_next_subresults()
+            self._next_subresults()
         elif command == 'p':
-            self._show_prev_subresults()
-        elif command[:1] == 'd':
+            self._prev_subresults()
+        elif command == 'x':
+            # TODO: start player process
+            print "Not implemented"
+        elif command == 'r':
+            # TODO: rename last file
+            print "Not implemented"
+        elif command == 's':
+                self._do_search(raw_command[1:].strip())
+        elif command == 'd':
             try:
-                index = int(command[1:].strip())
+                index = int(raw_command[1:].strip())
                 self._download_song(index)
             except ValueError:
-                print 'Bad index!'
+                print "Bad index!"
         else:
-            print 'invalid command, try agian.'
+            print "invalid command, try agian."
 
-    def display_subresults(self, results):
-        fm.fetch_details(results)
+    def _do_search(self, query):
+        if len(query) == 0:
+            print "missing search term (s <song or artist>)."
+            return
+
+        self.results = self.freemusic.search(query)
+        self.current_offset = 0
+
+        self._display_results()
+
+    def _display_results(self):
+        if len(self.results) == 0:
+            print "No results."
+            return
+        else:
+            print "Showing results %d to %d of a total %d:" % (self.current_offset,
+                    self.current_offset + RESULTS_PER_PAGE, len(self.results))
+            self._display_subresults(self.results[self.current_offset:self.current_offset+RESULTS_PER_PAGE])
+            # FIXME: list actual result indexes (result might contain less than RESULTS_PER_PAGE entries)
+
+    def _display_subresults(self, results):
+        self.freemusic.fetch_details(results)
         i = 0
         for s in results:
-            print u'%d: %s (%.2f MiB, %d kbps)' % (i, s, s.size/1048576.0, s.bitrate)
+            print u"%d: %s (%.2f MiB, %d kbps)" % (i, s, s.size/1048576.0, s.bitrate)
             i+=1
+
+        print "To download type 'd <index>', use 'n' or 'p' for next or previous results."
+
+    def _next_subresults(self):
+        if self.current_offset < len(self.results):
+            self.current_offset += RESULTS_PER_PAGE
+            self._display_results()
+        else:
+            print "No more results."
+
+    def _prev_subresults(self):
+        if self.current_offset >= RESULTS_PER_PAGE:
+            self.current_offset -= RESULTS_PER_PAGE
+            self._display_results()
+        else:
+            print "At the beginning."
+
+    def _download_reporthook(self, block, blocksize, totalsize):
+        sys.stdout.write('\r%d %%' % (block*blocksize/float(totalsize)*100.0))
+        sys.stdout.flush()
+        # TODO: make fancy download bar à la wget
+
+    def _download_song(self, index):
+        song = self.results[index]
+        print u"Downloading song '%s'" % song
+        print "debug: %s" % song.url
+
+        try:
+            retrieved = urllib.urlretrieve(song.url, reporthook=self._download_reporthook)
+            self.last_filename = u"%s.mp3" % song
+            os.rename(retrieved[0], self.last_filename) # defaults to current dir
+        except Exception as ex:
+            print "Download failed! reason: %s" % ex
+            return
+        print # newline after download progress.
+        print "Saved as %s" % self.last_filename
+        print "To play in %s type 'x'" % PLAYER
+        # TODO: rename!
 
 def reporthook(block,blocksize,totalsize):
     sys.stdout.write('\r%d %%' % (block*blocksize/float(totalsize)*100.0))
     sys.stdout.flush()
 
 if __name__ == '__main__':
+    TextUI().run()
+    exit(1)
     from sys import argv
     if len(argv) < 2:
         print 'Usage: ./%s "search term"' % argv[0]
