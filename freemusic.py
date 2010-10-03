@@ -243,7 +243,7 @@ class TextUI:
         self.freemusic.fetch_details(results)
         i = 0
         for s in results:
-            print u"%d: %s (%.2f MiB, %d kbps)" % (i, s, s.size/1048576.0, s.bitrate)
+            print u"%d: %s (%.2f MiB, %d kbps)" % (self.current_offset+i, s, s.size/1048576.0, s.bitrate)
             i+=1
 
         print "To download type 'd <index>', use 'n' or 'p' for next or previous results."
